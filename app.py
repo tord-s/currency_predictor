@@ -2,6 +2,7 @@ import requests
 import tensorflow
 from flask import Flask
 import json
+from flask_cors import CORS
 
 # Import the libraries
 import math
@@ -11,6 +12,7 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, LSTM, Dropout
 
 app = Flask(__name__)
+CORS(app)
 
 
 @app.before_first_request
@@ -18,7 +20,7 @@ def _run_on_start():
     print("hi there")
 
 
-@app.route("/")
+@app.route("/", methods=["GET"])
 def get_100_preds():
     return get_100_preds()
 
@@ -74,7 +76,15 @@ def get_100_preds():
     print("Data is ready")
 
     if use_current_model:
-        model = tensorflow.keras.models.load_model("models")
+        from tensorflow.keras.models import model_from_json
+
+        json_file = open("model.json", "r")
+        loaded_model_json = json_file.read()
+        json_file.close()
+        model = model_from_json(loaded_model_json)
+        model.load_weights("model.h5")
+        # tensorflow.keras.backend.clear_session()
+        # model = tensorflow.keras.models.load_model("models", compile=False)
     else:
         # Initialising the RNN
         model = Sequential()
@@ -105,7 +115,12 @@ def get_100_preds():
         model.compile(optimizer="adam", loss="mean_squared_error")
         model.fit(x_train, y_train, epochs=30, batch_size=50)
 
-        model.save("models")
+        # model.save("models")
+        model.save_weights("model.h5")
+        model_json = model.to_json()
+        with open("model.json", "w") as json_file:
+            json_file.write(model_json)
+        json_file.close()
 
     print("Model is ready")
 
@@ -126,6 +141,8 @@ def get_100_preds():
     x_test = np.reshape(x_test, (x_test.shape[0], x_test.shape[1], 1))
 
     # check predicted values
+    print("X_test: ------------------------------------")
+    print(x_test)
     predictions = model.predict(x_test)
     # Undo scaling
     predictions = scaler.inverse_transform(predictions)
