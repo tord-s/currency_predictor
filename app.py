@@ -1,8 +1,21 @@
 import requests
 import tensorflow
 from flask import Flask
+import json
+
+# Import the libraries
+import math
+import numpy as np
+from sklearn.preprocessing import MinMaxScaler
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, LSTM, Dropout
 
 app = Flask(__name__)
+
+
+@app.before_first_request
+def _run_on_start():
+    print("hi there")
 
 
 @app.route("/")
@@ -14,7 +27,7 @@ def get_100_preds():
 
     response = requests.get(
         "https://data.norges-bank.no/api/data/EXR/B.USD",
-        params={"format": "sdmx-json", "lastNObservations": "100", "locale": "no"},
+        params={"format": "sdmx-json", "lastNObservations": "50", "locale": "no"},
     )
 
     json_response = response.json()
@@ -23,22 +36,14 @@ def get_100_preds():
         "observations"
     ]
 
+    print("Raw data collected")
+
     raw_data = []
     for o in observations.items():
         raw_data.append(o[1])
 
-    raw_data = raw_data
-
-    # Import the libraries
-    import math
-    import numpy as np
-    import pandas as pd
-    from sklearn.preprocessing import MinMaxScaler
-    from tensorflow.keras.models import Sequential
-    from tensorflow.keras.layers import Dense, LSTM, Dropout
-    import matplotlib.pyplot as plt
-
-    plt.style.use("fivethirtyeight")
+    # import matplotlib.pyplot as plt
+    # plt.style.use("fivethirtyeight")
 
     use_current_model = True
     model = None
@@ -65,6 +70,8 @@ def get_100_preds():
 
     # Reshape the data into 3-D array
     x_train = np.reshape(x_train, (x_train.shape[0], x_train.shape[1], 1))
+
+    print("Data is ready")
 
     if use_current_model:
         model = tensorflow.keras.models.load_model("models")
@@ -100,12 +107,14 @@ def get_100_preds():
 
         model.save("models")
 
+    print("Model is ready")
+
     # Test data set
     test_data = scaled_data
 
     # splitting the x_test and y_test data sets
     x_test = []
-    y_test = raw_data
+    # y_test = raw_data
 
     for i in range(10, len(test_data)):
         x_test.append(test_data[i - 10 : i, 0])
@@ -121,11 +130,12 @@ def get_100_preds():
     # Undo scaling
     predictions = scaler.inverse_transform(predictions)
 
+    print("Predictions done")
+
     # plt.plot(predictions)
     # plt.show()
 
     # convert nympy array to JSON
-    import json
 
     json_str = json.dumps(predictions.tolist())
     return json_str
